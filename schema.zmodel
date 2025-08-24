@@ -42,6 +42,7 @@ model Space {
     slug      String      @unique @regex('^[0-9a-zA-Z]{4,16}$')
     members   SpaceUser[]
     lists     List[]
+    tasks     Task[]
     
     // require login
     @@deny('all', auth() == null)
@@ -102,6 +103,7 @@ model User {
     image         String?     @url
     lists         List[]
     todos         Todo[]
+    tasks         Task[]
 
     // next-auth
     accounts      Account[]
@@ -152,6 +154,16 @@ model List extends BaseEntity {
     @@deny('read', private == true && owner != auth())
 }
 
+/** 
+ * Reusable Task definitions (e.g., "Take out trash")
+ */
+ model Task extends BaseEntity {
+    title          String   @length(1, 100)   
+    description    String?  @length(0, 500)
+    todos          Todo []
+ }
+
+
 /**
  * Model for a single Todo
  */
@@ -159,15 +171,23 @@ model Todo {
     id          String    @id @default(uuid())
     createdAt   DateTime  @default(now())
     updatedAt   DateTime  @updatedAt
+
     owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
     ownerId     String    @default(auth().id)
+
     list        List      @relation(fields: [listId], references: [id], onDelete: Cascade)
     listId      String
-    title       String    @length(1, 100)
+    
+    task        Task      @relation(fields: [taskId], references: [id], onDelete: Restrict)
+    taskId      String
+
     completedAt DateTime?
 
     // full access if the parent list is readable
     @@allow('all', check(list, 'read'))
+
+    // prevent cross-space mistakes: the task must belong to the same space as the list
+    @@deny('create,update', task.spaceId != list.spaceId)
 }
 
 /**
