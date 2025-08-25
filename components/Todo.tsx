@@ -1,13 +1,16 @@
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { useDeleteTodo, useUpdateTodo } from '@lib/hooks';
-import { Todo, User } from '@prisma/client';
+import { Todo, User, Task } from '@prisma/client';
 import { ChangeEvent } from 'react';
 import Avatar from './Avatar';
 import TimeInfo from './TimeInfo';
 
 type Props = {
-    value: Todo & { owner: User };
-    optimistic?: boolean;
+    value: Todo & 
+        { owner: User; 
+            task: (Pick<Task, 'title' | 'description'>) | null;
+        };
+        optimistic?: boolean;
 };
 
 export default function TodoComponent({ value, optimistic }: Props) {
@@ -31,14 +34,21 @@ export default function TodoComponent({ value, optimistic }: Props) {
     return (
         <div className="border rounded-lg px-8 py-4 shadow-lg flex flex-col items-center w-full lg:w-[480px]">
             <div className="flex justify-between w-full mb-4">
-                <h3
-                    className={`text-xl line-clamp-1 ${
-                        value.completedAt ? 'line-through text-gray-400 italic' : 'text-gray-700'
-                    }`}
-                >
-                    {value.title}
-                    {optimistic && <span className="loading loading-spinner loading-sm ml-1"></span>}
-                </h3>
+                <div className="flex flex-col">
+                     <h3
+                         className={`text-xl line-clamp-1 ${
+                            value.completedAt ? 'line-through text-gray-400 italic' : 'text-gray-700'
+                         }`}
+                     >
+                        {value.task?.title ?? '(No task)'}
+                        {optimistic && <span className="loading loading-spinner loading-sm ml-1"></span>}
+                    </h3>
+
+                    {value.task?.description ? (
+                        <p className="text-sm text-gray-500 line-clamp-2">{value.task.description}</p>
+                    ) : null}
+                </div>
+
                 <div className="flex">
                     <input
                         type="checkbox"
