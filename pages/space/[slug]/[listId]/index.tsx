@@ -3,6 +3,7 @@ import { useCreateTodo,
         useFindManyTodo,
         useFindManyTask,
         useCreateTask,
+        useUpdateTodo
 } from '@lib/hooks';
 import { List, Space } from '@prisma/client';
 import BreadCrumb from 'components/BreadCrumb';
@@ -22,6 +23,7 @@ export default function TodoList(props: Props) {
 
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskDesc, setNewTaskDesc] = useState('');
+    const [taskFilter, setTaskFilter] = useState('');
 
     const { trigger: createTodo } = useCreateTodo({ optimisticUpdate: true});
     const { data: tasks = [] } = useFindManyTask({
@@ -29,13 +31,14 @@ export default function TodoList(props: Props) {
         orderBy: { createdAt: 'desc'},
     });
     const { trigger: createTask } = useCreateTask({ optimisticUpdate: true });
+    const { trigger: updateTodo } = useUpdateTodo ({ optimisticUpdate: true });
 
     const { data: todos } = useFindManyTodo(
         {
             where: { listId: props.list.id },
             include: {
                 owner: true,
-                task: { select: { title: true, description: true } },
+                task: { select: { id: true, title: true, description: true } },
             },
             orderBy: {
                 createdAt: 'desc',
@@ -65,18 +68,27 @@ export default function TodoList(props: Props) {
             </div>
             <div className="container w-full flex flex-col items-center py-12 mx-auto">
                 <h1 className="text-2xl font-semibold mb-4">{props.list?.title}</h1>
-                <div className="flex space-x-2 items-center mt-2">
+                <div className="flex items-center gap-2 mt-2">
+                    <input
+                        type="text"
+                        placeholder="Search tasks..."
+                        className="input input-bordered input-sm w-60"
+                        value={taskFilter}
+                        onChange={(e) => setTaskFilter(e.currentTarget.value)}
+                    />
                     <select
                         className="select select-bordered w-72"
                         value={selectedTaskId}
                         onChange={(e) => setSelectedTaskId(e.currentTarget.value)}
                     >
                         <option value="">- Pick a Task -</option>
-                        {tasks.map((t) => (
-                            <option key={t.id} value={t.id}>
-                                {t.title}
-                            </option>
-                        ))}
+                        {tasks
+                            .filter(t => t.title.toLowerCase().includes(taskFilter.toLowerCase()))
+                            .map((t) => (
+                                <option key={t.id} value={t.id}>
+                                    {t.title}
+                                </option>
+                            ))}
                     </select>
 
                     <button
@@ -133,9 +145,34 @@ export default function TodoList(props: Props) {
                     </button>
                 </div>
 
-                <ul className="flex flex-col space-y-4 py-8 w-11/12 md:w-auto">
+                <ul className="flex flex-col space-y-6 py-8 w-11/12 md:w-auto">
                     {todos?.map((todo) => (
-                        <TodoComponent key={todo.id} value={todo} optimistic={todo.$optimistic} />
+                        <li key={todo.id} className="flex flex-col items-center gap-2">
+                            <TodoComponent value={todo} optimistic={todo.$optimistic} />
+
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm text-gray-500">Change Task:</label>
+                                <select
+                                    className="select select-bordered select-sm w-64"
+                                    value={todo.task?.id ?? ''}
+                                    onChange={(e) => {
+                                        const newTaskId = e.currentTarget.value;
+                                        if (!newTaskId) return;
+                                        void updateTodo({
+                                            where: { id: todo.id },
+                                            data: { task: { connect: { id: newTaskId } } },
+                                        });
+                                    }}
+                                >
+                                    <option value="" disabled>- Select a Task -</option>
+                                    {tasks.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </li>
                     ))}
                 </ul>
             </div>
